@@ -14,5 +14,6 @@
 | Android Chrome físico | Pendiente |
 | Cuarenta teléfonos físicos simultáneos | Pendiente; la carga ejecutada fue por HTTP contra Supabase |
 | Piloto humano de ≤ 8 minutos | Pendiente; la duración no se infiere del script automatizado |
+| Orden CRT y exposición previa | Máquinas → lago → pelota; etiqueta docente «(ya vista en la clase 1)». Migración probada desde la configuración anterior e idempotencia verificada |
 
 Los tiempos y las respuestas del generador son simulados. Las estimaciones ancladas se producen con desplazamientos multiplicativos según condición. El demo nunca escribe en la base real. Los valores extremos se excluyen solo del dibujo, no de medianas, índices o correlaciones. El índice exige los cuatro ítems de ancla fija completos y valores positivos; la cobertura y el puntaje total usan bloques completos.

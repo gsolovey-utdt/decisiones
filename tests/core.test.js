@@ -9,7 +9,7 @@ test('Diseño: dos altas y dos bajas, comparaciones antes de estimar, ruleta al 
     assert.equal(p.length,22);assert.equal(anchors.filter(s=>s.condition==='alta').length,2);assert.equal(anchors.filter(s=>s.condition==='baja').length,2);
     assert.deepEqual([...new Set(p.map(s=>s.block))],config.blocks.map(b=>b.id));
     for(let i=0;i<8;i+=2){assert.equal(p[i].kind,'compare');assert.equal(p[i+1].kind,'estimate');assert.equal(p[i].item,p[i+1].item);assert.equal(p[i].anchor,p[i+1].anchor);}
-    assert.equal(p[8].kind,'spin');assert.equal(p[9].item,'piano');assert.equal(p[10].item,'piano');assert.equal(p.at(-1).item,'lago');
+    assert.equal(p[8].kind,'spin');assert.equal(p[9].item,'piano');assert.equal(p[10].item,'piano');assert.deepEqual(p.slice(-3).map(s=>s.item),['maquinas','lago','pelota']);
     combos.add(anchors.filter(s=>s.condition==='alta').map(s=>s.item).sort().join(','));orders.add(anchors.map(s=>s.item).join(','));
     assert.deepEqual(p.find(s=>s.block==='enfermedad').options.map(o=>o.id),['segura','riesgosa']);
   }
@@ -21,7 +21,7 @@ test('Números rioplatenses y primer número de respuestas libres',()=>{
   assert.equal(parseNumber('no sé',true),null);assert.equal(parseNumber('12,5'),12.5);
 });
 test('Intervalos inclusivos, valores cero, validación y clasificación',()=>{
-  const p=makePlan(config),interval=p.find(s=>s.kind==='interval'),problem=p.find(s=>s.kind==='problem');
+  const p=makePlan(config),interval=p.find(s=>s.kind==='interval'),problem=p.find(s=>s.item==='pelota');
   assert.deepEqual(interpret(interval,{min:'0',max:'1901'},config),{min:0,max:1901});
   assert.throws(()=>interpret(interval,{min:'10',max:'9'},config));
   assert.equal(interpret(problem,'$ 50 pesos',config).classification,'correcta');

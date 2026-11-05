@@ -2,6 +2,8 @@
 
 HTML/CSS/JavaScript sin compilación, GitHub Pages y el mismo Supabase y estilo de `two-armed-bandit` y `pilas-emociones`. Anónimo, 22 pantallas, respuestas y avance persistentes.
 
+CRT en orden fijo: **máquinas → lago → pelota y raqueta**. El docente ve la última como «(ya vista en la clase 1)»; esa etiqueta no aparece en el celular.
+
 ## Enlaces
 
 - [Estudiantes](https://gsolovey-utdt.github.io/decisiones/index.html?s=clase21) y [QR PNG](entregables/clase21-qr.png).

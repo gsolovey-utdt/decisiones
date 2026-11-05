@@ -7,7 +7,10 @@ const {PGlite}=await import(pathToFileURL(modulePath));const {pgcrypto}=await im
 const pg=new PGlite({extensions:{pgcrypto}}),config=JSON.parse(fs.readFileSync('config/clase21.json','utf8'));
 await pg.exec('create schema extensions;create role anon;create role authenticated;');await pg.exec(fs.readFileSync('schema.sql','utf8'));
 const key='test-key-never-used-in-production',hash=createHash('sha256').update(key).digest('hex');
-await pg.query('insert into nype_dec_sessions(id,config,key_hash) values ($1,$2,$3)',['clase21',config,hash]);
+const legacy=structuredClone(config),oldProblems=legacy.blocks.find(b=>b.type==='problems');
+oldProblems.items=['pelota','maquinas','lago'].map(id=>oldProblems.items.find(i=>i.id===id));oldProblems.items[0].label='Raqueta y pelota';
+await pg.query('insert into nype_dec_sessions(id,config,key_hash) values ($1,$2,$3)',['clase21',legacy,hash]);
+await pg.exec(fs.readFileSync('migrations/20261105_orden_crt.sql','utf8'));await pg.exec(fs.readFileSync('migrations/20261105_orden_crt.sql','utf8'));
 const rpc=async(name,p)=>{const keys=Object.keys(p);const q=await pg.query(`select nype_dec_${name}(${keys.map((k,i)=>k+' => $'+(i+1)).join(',')}) as result`,keys.map(k=>k==='p_raw'?JSON.stringify(p[k]):p[k]));return q.rows[0].result;};
 const admin=action=>rpc('admin',{p_session:'clase21',p_key:key,p_action:action});
 assert.equal((await rpc('status',{p_session:'clase21'})).open,false);
@@ -28,6 +31,7 @@ let disease={ganancias:0,perdidas:0},lastPayload;
 for(let step=0;step<22;step++){
   const payloads=states.map((state,i)=>{
     const s=state.current;assert.equal(s.order,step+1);assert.ok(!('correct' in s)&&!('real' in s));
+    if(step>=19)assert.equal(s.item,['maquinas','lago','pelota'][step-19]);
     if(s.block==='enfermedad')disease[s.condition]++;
     const block=config.blocks.find(b=>b.id===s.block),item=block.items?.find(x=>x.id===s.item)||block.roulette;
     let raw=s.options?.[0].id??String(item?.correct??item?.real??1);

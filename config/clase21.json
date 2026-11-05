@@ -26,9 +26,9 @@
     ]},
     {"id":"decil","type":"decile","label":"Decil","idItem":"decil","prompt":"Si al final de la materia se ordena a todo el curso por nota final y se lo divide en diez grupos del mismo tamaño, ¿en cuál creés que vas a quedar?"},
     {"id":"problemas","type":"problems","label":"Tres problemas","items":[
-      {"id":"pelota","label":"Raqueta y pelota","prompt":"Una raqueta y una pelota cuestan $1.100. La raqueta cuesta $1.000 más que la pelota. ¿Cuánto cuesta la pelota?","unit":"pesos","correct":50,"intuitive":100},
       {"id":"maquinas","label":"Máquinas","prompt":"5 máquinas tardan 5 minutos en fabricar 5 artefactos. ¿Cuántos minutos tardan 100 máquinas en fabricar 100 artefactos?","unit":"minutos","correct":5,"intuitive":100},
-      {"id":"lago","label":"Lago","prompt":"Un lago está empezando a congelarse y cada día que pasa el hielo duplica su tamaño. Si va a tardar 48 días en congelarse por completo, ¿cuántos días pasan hasta que se congele la mitad?","unit":"días","correct":47,"intuitive":24}
+      {"id":"lago","label":"Lago","prompt":"Un lago está empezando a congelarse y cada día que pasa el hielo duplica su tamaño. Si va a tardar 48 días en congelarse por completo, ¿cuántos días pasan hasta que se congele la mitad?","unit":"días","correct":47,"intuitive":24},
+      {"id":"pelota","label":"Pelota y raqueta (ya vista en la clase 1)","prompt":"Una raqueta y una pelota cuestan $1.100. La raqueta cuesta $1.000 más que la pelota. ¿Cuánto cuesta la pelota?","unit":"pesos","correct":50,"intuitive":100}
     ]}
   ]
 }
