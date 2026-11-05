@@ -1,0 +1,1 @@
+{"name":"nype-decisiones","version":"1.0.0","private":true,"type":"module","scripts":{"test":"node --test --test-isolation=none tests/core.test.js","serve":"node scripts/serve.mjs","prepare-session":"node scripts/prepare-session.mjs"}}

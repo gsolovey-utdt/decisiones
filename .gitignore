@@ -1,0 +1,6 @@
+.qa/
+node_modules/
+entregables/ACCESO-DOCENTE*.txt
+entregables/activar-*.sql
+.DS_Store
+Thumbs.db

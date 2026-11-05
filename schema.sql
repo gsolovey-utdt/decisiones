@@ -1,0 +1,233 @@
+-- NyPE Decisiones. Ejecutar UNA VEZ en el SQL Editor del Supabase compartido.
+-- No modifica tablas de otras apps. Después ejecutar el SQL de activación privado.
+create extension if not exists pgcrypto with schema extensions;
+
+create table if not exists public.nype_dec_sessions (
+  id text primary key check (id ~ '^[a-z0-9][a-z0-9_-]{0,63}$'),
+  config jsonb not null,
+  key_hash text not null,
+  is_open boolean not null default false,
+  epoch integer not null default 1,
+  frame_deck text[] not null default '{}',
+  created_at timestamptz not null default now()
+);
+create table if not exists public.nype_dec_participants (
+  session_id text not null references public.nype_dec_sessions(id),
+  participant_id uuid not null,
+  token_hash text not null,
+  plan jsonb not null,
+  cursor integer not null default 0,
+  spin integer check (spin between 0 and 100),
+  server_shown_at timestamptz not null default clock_timestamp(),
+  started_at timestamptz not null default clock_timestamp(),
+  completed_at timestamptz,
+  primary key (session_id,participant_id)
+);
+create table if not exists public.nype_dec_answers (
+  session_id text not null,
+  participant_id uuid not null,
+  presentation_order integer not null,
+  event_id uuid not null,
+  block text not null,
+  item text not null,
+  kind text not null,
+  condition text,
+  anchor numeric,
+  option_order jsonb not null default '[]',
+  raw jsonb not null,
+  parsed jsonb not null,
+  shown_at timestamptz not null,
+  answered_at timestamptz not null,
+  reaction_time_ms numeric not null check (reaction_time_ms >= 0),
+  server_shown_at timestamptz not null,
+  received_at timestamptz not null default clock_timestamp(),
+  primary key(session_id,participant_id,presentation_order),
+  unique(session_id,participant_id,event_id),
+  foreign key(session_id,participant_id) references public.nype_dec_participants(session_id,participant_id) on delete cascade
+);
+alter table public.nype_dec_sessions enable row level security;
+alter table public.nype_dec_participants enable row level security;
+alter table public.nype_dec_answers enable row level security;
+revoke all on public.nype_dec_sessions, public.nype_dec_participants, public.nype_dec_answers from anon,authenticated;
+
+create or replace function public._nype_dec_shuffle(a jsonb) returns jsonb
+language sql volatile set search_path=public,extensions,pg_temp as $$
+  select coalesce(jsonb_agg(v order by random()),'[]'::jsonb) from jsonb_array_elements(a) v
+$$;
+
+create or replace function public._nype_dec_plan(c jsonb, frame text) returns jsonb
+language plpgsql volatile set search_path=public,extensions,pg_temp as $$
+declare plan jsonb='[]'; b jsonb; i jsonb; s jsonb; highs jsonb; items jsonb;
+  cond text; a numeric; options jsonb; idx integer;
+begin
+  for b in select value from jsonb_array_elements(c->'blocks') loop
+    if b->>'type'='anchors' then
+      items=public._nype_dec_shuffle(b->'items');
+      select jsonb_agg(value->>'id') into highs from
+        (select value from jsonb_array_elements(public._nype_dec_shuffle(b->'items')) limit jsonb_array_length(b->'items')/2) q;
+      for i in select value from jsonb_array_elements(items) loop
+        cond=case when highs ? (i->>'id') then 'alta' else 'baja' end;
+        a=(i->>case when cond='alta' then 'high' else 'low' end)::numeric;
+        s=jsonb_build_object('block',b->>'id','item',i->>'id','condition',cond,'anchor',a,'unit',i->>'unit');
+        plan=plan||jsonb_build_array(s||jsonb_build_object('kind','compare','prompt',replace(i->>'compare','{A}',replace(to_char(a,'FM999,999,999,990'),',','.')),'options',jsonb_build_array(jsonb_build_object('id','mas','text','Más'),jsonb_build_object('id','menos','text','Menos'))));
+        plan=plan||jsonb_build_array(s||jsonb_build_object('kind','estimate','prompt',i->>'prompt','subtitle','¿Cuál es tu mejor estimación?'));
+      end loop;
+      if b ? 'roulette' then
+        i=b->'roulette';s=jsonb_build_object('block',b->>'id','item',i->>'id','condition','ruleta','unit',i->>'unit');
+        plan=plan||jsonb_build_array(s||jsonb_build_object('kind','spin','prompt','Girá la ruleta'));
+        plan=plan||jsonb_build_array(s||jsonb_build_object('kind','compare','prompt',i->>'compare','options',jsonb_build_array(jsonb_build_object('id','mas','text','Más'),jsonb_build_object('id','menos','text','Menos'))));
+        plan=plan||jsonb_build_array(s||jsonb_build_object('kind','estimate','prompt',i->>'prompt'));
+      end if;
+    elsif b->>'type' in ('choice','framing','decile') then
+      if b->>'type'='choice' then
+        options=case when coalesce((b->>'shuffle')::boolean,false) then public._nype_dec_shuffle(b->'options') else b->'options' end;
+      elsif b->>'type'='framing' then options=b->'versions'->frame;
+      else
+        select jsonb_agg(jsonb_build_object('id',j::text,'text',case when j=1 then '1 · el 10 % de notas más altas' when j=10 then '10 · el 10 % de notas más bajas' else j||' · decil '||j end) order by j) into options from generate_series(1,10) j;
+      end if;
+      plan=plan||jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('block',b->>'id','item',b->>'idItem','kind','choice','text',b->>'text','prompt',b->>'prompt','condition',case when b->>'type'='framing' then frame end,'options',options)));
+    elsif b->>'type' in ('intervals','problems') then
+      for i in select value from jsonb_array_elements(b->'items') loop
+        plan=plan||jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('block',b->>'id','item',i->>'id','kind',case when b->>'type'='intervals' then 'interval' else 'problem' end,'prompt',i->>'prompt','unit',i->>'unit','instruction',b->>'instruction')));
+      end loop;
+    else raise exception 'Tipo de bloque no implementado';
+    end if;
+  end loop;
+  for idx in 0..jsonb_array_length(plan)-1 loop
+    plan=jsonb_set(plan,array[idx::text,'order'],to_jsonb(idx+1));
+  end loop;
+  return plan;
+end $$;
+
+create or replace function public._nype_dec_number(raw text, free boolean default false) returns numeric
+language plpgsql immutable set search_path=public,extensions,pg_temp as $$
+declare s text; n numeric;
+begin
+  s=regexp_replace(trim(raw),'[[:space:]]','','g');
+  if free then
+    s=(regexp_match(s,'([+-]?[0-9]+(?:[.,][0-9]+)*)'))[1];
+  end if;
+  if s is null or s !~ '^[+-]?[0-9]+([.,][0-9]+)*$' then return null; end if;
+  if position(',' in s)>0 then
+    if length(s)-length(replace(s,',',''))<>1 then return null; end if;
+    s=replace(replace(s,'.',''),',','.');
+  elsif s ~ '^[+-]?[0-9]{1,3}(\.[0-9]{3})+$' then s=replace(s,'.',''); end if;
+  if s !~ '^[+-]?[0-9]+(\.[0-9]+)?$' then return null; end if;
+  n=s::numeric;if abs(n)>1e15 then return null;end if;return n;
+end $$;
+
+create or replace function public._nype_dec_state(s public.nype_dec_sessions, p public.nype_dec_participants) returns jsonb
+language plpgsql stable set search_path=public,extensions,pg_temp as $$
+declare current jsonb;
+begin
+  current=p.plan->p.cursor;
+  if current->>'condition'='ruleta' and current->>'kind'<>'spin' then
+    current=current||jsonb_build_object('anchor',p.spin,'prompt',replace(current->>'prompt','{A}',p.spin::text));
+  end if;
+  return jsonb_build_object('open',s.is_open,'epoch',s.epoch,'cursor',p.cursor,'total',jsonb_array_length(p.plan),'current',current,'completed_at',p.completed_at,'spin',p.spin);
+end $$;
+
+create or replace function public.nype_dec_status(p_session text) returns jsonb
+language plpgsql security definer set search_path=public,extensions,pg_temp as $$
+declare s public.nype_dec_sessions;
+begin
+  select * into s from public.nype_dec_sessions where id=p_session;
+  if not found then raise exception 'La sesión no está activada. Avisale al docente.'; end if;
+  return jsonb_build_object('open',s.is_open,'epoch',s.epoch,'title',s.config->>'title','intro',s.config->>'intro');
+end $$;
+
+create or replace function public.nype_dec_join(p_session text,p_participant uuid,p_token text) returns jsonb
+language plpgsql security definer set search_path=public,extensions,pg_temp as $$
+declare s public.nype_dec_sessions;p public.nype_dec_participants; deck text[]; frame text;
+begin
+  if p_token is null or length(p_token)<>64 or p_token !~ '^[0-9a-f]{64}$' then raise exception 'UNAUTHORIZED';end if;
+  select * into s from public.nype_dec_sessions where id=p_session for update;
+  if not found then raise exception 'Sesión inexistente';end if;
+  if not s.is_open then raise exception 'CLOSED';end if;
+  select * into p from public.nype_dec_participants where session_id=p_session and participant_id=p_participant;
+  if found then
+    if p.token_hash<>encode(extensions.digest(p_token,'sha256'),'hex') then raise exception 'UNAUTHORIZED';end if;
+  else
+    deck=s.frame_deck;
+    if cardinality(deck)=0 then deck=case when random()<.5 then array['ganancias','perdidas'] else array['perdidas','ganancias'] end;end if;
+    frame=deck[1];
+    update public.nype_dec_sessions set frame_deck=deck[2:cardinality(deck)] where id=p_session;
+    insert into public.nype_dec_participants(session_id,participant_id,token_hash,plan)
+    values(p_session,p_participant,encode(extensions.digest(p_token,'sha256'),'hex'),public._nype_dec_plan(s.config,frame)) returning * into p;
+  end if;
+  return public._nype_dec_state(s,p);
+end $$;
+
+create or replace function public.nype_dec_answer(p_session text,p_participant uuid,p_token text,p_epoch integer,p_order integer,p_raw jsonb,p_shown_at timestamptz,p_answered_at timestamptz,p_event uuid) returns jsonb
+language plpgsql security definer set search_path=public,extensions,pg_temp as $$
+declare s public.nype_dec_sessions;p public.nype_dec_participants;q jsonb;parsed jsonb;raw jsonb=p_raw;
+  item jsonb;b jsonb;n numeric;lo numeric;hi numeric;options jsonb;old public.nype_dec_answers;
+begin
+  -- Always lock session before participant. Closing/resetting cannot race a write.
+  select * into s from public.nype_dec_sessions where id=p_session for share;
+  if not found then raise exception 'Sesión inexistente';end if;
+  if p_epoch is null or s.epoch<>p_epoch then raise exception 'RESET';end if;
+  if not s.is_open then raise exception 'CLOSED';end if;
+  select * into p from public.nype_dec_participants where session_id=p_session and participant_id=p_participant for update;
+  if not found or p_token is null or p.token_hash<>encode(extensions.digest(p_token,'sha256'),'hex') then raise exception 'UNAUTHORIZED';end if;
+  if p_order<=p.cursor then
+    select * into old from public.nype_dec_answers where session_id=p_session and participant_id=p_participant and presentation_order=p_order;
+    if old.event_id<>p_event then raise exception 'Esta pantalla ya fue respondida. Recargá la página.';end if;
+    return public._nype_dec_state(s,p);
+  end if;
+  if p_order<>p.cursor+1 then raise exception 'Orden de presentación incorrecto';end if;
+  if p_shown_at is null or p_answered_at is null or p_answered_at<p_shown_at then raise exception 'Tiempos inválidos';end if;
+  if octet_length(coalesce(raw::text,''))>4000 then raise exception 'Respuesta demasiado larga';end if;
+  q=p.plan->p.cursor;
+  select value into b from jsonb_array_elements(s.config->'blocks') where value->>'id'=q->>'block';
+  if q->>'kind' in ('choice','compare') then
+    if not exists(select 1 from jsonb_array_elements(q->'options') o where o->>'id'=raw#>>'{}') then raise exception 'Elegí una opción';end if;
+    parsed=jsonb_build_object('value',case when b->>'type'='decile' then to_jsonb((raw#>>'{}')::integer) else raw end);
+  elsif q->>'kind'='spin' then
+    n=floor(random()*101);raw=to_jsonb(n);parsed=jsonb_build_object('value',n);p.spin=n;
+  elsif q->>'kind'='interval' then
+    lo=public._nype_dec_number(raw->>'min');hi=public._nype_dec_number(raw->>'max');
+    if lo is null or hi is null or lo<0 or hi<lo then raise exception 'Intervalo inválido';end if;
+    parsed=jsonb_build_object('min',lo,'max',hi);
+  else
+    if raw is null or jsonb_typeof(raw)<>'string' then raise exception 'Respuesta inválida';end if;
+    n=public._nype_dec_number(raw#>>'{}',q->>'kind'='problem');
+    if (n is null and q->>'kind'<>'problem') or n<0 or length(trim(raw#>>'{}'))=0 or raw is null then raise exception 'Respuesta inválida';end if;
+    parsed=jsonb_build_object('value',n);
+    if q->>'kind'='problem' then
+      select value into item from jsonb_array_elements(b->'items') where value->>'id'=q->>'item';
+      parsed=parsed||jsonb_build_object('classification',case when n=(item->>'correct')::numeric then 'correcta' when n=(item->>'intuitive')::numeric then 'intuitiva' else 'otra' end);
+    end if;
+  end if;
+  select coalesce(jsonb_agg(o->>'id'),'[]') into options from jsonb_array_elements(coalesce(q->'options','[]')) o;
+  insert into public.nype_dec_answers(session_id,participant_id,presentation_order,event_id,block,item,kind,condition,anchor,option_order,raw,parsed,shown_at,answered_at,reaction_time_ms,server_shown_at)
+  values(p_session,p_participant,p_order,p_event,q->>'block',q->>'item',q->>'kind',q->>'condition',case when q->>'condition'='ruleta' then p.spin else (q->>'anchor')::numeric end,options,raw,parsed,p_shown_at,p_answered_at,extract(epoch from (p_answered_at-p_shown_at))*1000,p.server_shown_at);
+  update public.nype_dec_participants set cursor=cursor+1,spin=p.spin,server_shown_at=clock_timestamp(),
+    completed_at=case when cursor+1=jsonb_array_length(plan) then clock_timestamp() end
+    where session_id=p_session and participant_id=p_participant returning * into p;
+  return public._nype_dec_state(s,p);
+end $$;
+
+create or replace function public.nype_dec_admin(p_session text,p_key text,p_action text default 'snapshot') returns jsonb
+language plpgsql security definer set search_path=public,extensions,pg_temp as $$
+declare s public.nype_dec_sessions;participants jsonb;answers jsonb;
+begin
+  select * into s from public.nype_dec_sessions where id=p_session for update;
+  if not found or s.key_hash<>encode(extensions.digest(p_key,'sha256'),'hex') or p_key is null then raise exception 'UNAUTHORIZED';end if;
+  if p_action='open' then update public.nype_dec_sessions set is_open=true where id=p_session;
+  elsif p_action='close' then update public.nype_dec_sessions set is_open=false where id=p_session;
+  elsif p_action='clear' then
+    delete from public.nype_dec_participants where session_id=p_session;
+    update public.nype_dec_sessions set is_open=false,epoch=epoch+1,frame_deck='{}' where id=p_session;
+  elsif p_action<>'snapshot' then raise exception 'Acción inválida';end if;
+  select * into s from public.nype_dec_sessions where id=p_session;
+  select coalesce(jsonb_agg(jsonb_build_object('participant_id',p.participant_id,'started_at',p.started_at,'completed_at',p.completed_at,'current_block',p.plan->p.cursor->>'block') order by p.started_at),'[]') into participants from public.nype_dec_participants p where p.session_id=p_session;
+  select coalesce(jsonb_agg((to_jsonb(a)-'event_id'-'session_id'-'presentation_order')||jsonb_build_object('order',a.presentation_order) order by a.participant_id,a.presentation_order),'[]') into answers from public.nype_dec_answers a where a.session_id=p_session;
+  return jsonb_build_object('open',s.is_open,'epoch',s.epoch,'config',s.config,'participants',participants,'answers',answers);
+end $$;
+
+-- Publicly callable endpoints are the only access. Internal helpers and tables stay private.
+revoke all on function public._nype_dec_shuffle(jsonb),public._nype_dec_plan(jsonb,text),public._nype_dec_number(text,boolean),public._nype_dec_state(public.nype_dec_sessions,public.nype_dec_participants) from public,anon,authenticated;
+revoke all on function public.nype_dec_status(text),public.nype_dec_join(text,uuid,text),public.nype_dec_answer(text,uuid,text,integer,integer,jsonb,timestamptz,timestamptz,uuid),public.nype_dec_admin(text,text,text) from public,anon,authenticated;
+grant execute on function public.nype_dec_status(text),public.nype_dec_join(text,uuid,text),public.nype_dec_answer(text,uuid,text,integer,integer,jsonb,timestamptz,timestamptz,uuid),public.nype_dec_admin(text,text,text) to anon;
+notify pgrst,'reload schema';
