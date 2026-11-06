@@ -5,7 +5,8 @@
 - Carga SQL local: 40 participantes, 760 respuestas, cuatro celdas de 10, enfermedad 20/20, condiciones estables por persona.
 - Recorrido en navegador a 390 px: 19 pantallas, fotos, reanudación en el mismo objeto, precios con puntos de miles y cero, CRT en orden y cierre sin resultados: verificado.
 - Proyector 1280×720: cuatro anclas juntas, resumen entre grupos y tres objetos juntos; valores reales ocultos al inicio: verificado.
-- Carga HTTP en Supabase de esta versión: pendiente de activar la migración.
+- Carga HTTP en Supabase real: 40 participantes, 760 respuestas, cuatro celdas de 10 y enfermedad 20/20. p50 de envío 167 ms, p95 311 ms. La prueba se ejecutó en qa-clase21-v2-20261106; sus datos se borraron y esa recepción quedó cerrada.
+- Sesión de clase: clase21 mantiene la recepción abierta. Se verificó que las 22 respuestas anteriores quedaron conservadas en clase21-v1, separadas del diseño nuevo.
 - Pendientes: iOS Safari y Android Chrome físicos, cuarenta teléfonos físicos y piloto humano de hasta ocho minutos.
 
 El demo se etiqueta permanentemente como simulado y no escribe en Supabase. Las pruebas por HTTP no equivalen a una prueba en teléfonos físicos. La prueba automatizada no mide el tiempo de lectura ni razonamiento.
