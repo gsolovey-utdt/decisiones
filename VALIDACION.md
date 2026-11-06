@@ -1,5 +1,7 @@
 # Validación · versión 2 · 06/11/2026
 
+Actualización visual docente: 13 pruebas aprobadas (9 del motor y 4 de presentación). Vistas ampliadas de dotación verificadas en 1280×720 y 390 px; la ampliación conserva la proyección. Los cambios abarcan presentación docente, navegación y estilos; no cambian configuración experimental, guardado, respuestas ni SQL.
+
 - Nueve pruebas de motor, interpretación, estadísticas, configuración y CSV: aprobadas.
 - PostgreSQL local (PGlite): migración repetible, archivo anterior conservado íntegro, claves y RLS, orden, reintento, cierre y reinicio: aprobados.
 - Carga SQL local: 40 participantes, 760 respuestas, cuatro celdas de 10, enfermedad 20/20, condiciones estables por persona.

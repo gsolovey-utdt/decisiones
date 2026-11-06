@@ -1,6 +1,7 @@
 import {backend} from './api.js?v=2';
 import {analyze,fmt,mean,median,pct,spearman,csv,escape as e,groupBy} from './core.js?v=2';
 import {strip,discrete,continuous,scatter,stacked,compareGroups} from './charts.js?v=2';
+import {ownershipOverviewCard,ownershipDetail} from './ownership-view.js?v=3';
 const params=new URLSearchParams(location.search),session=params.get('s')||'clase21',demo=params.get('demo')==='1';
 let view=params.get('v')||'panel',key=decodeURIComponent(location.hash.slice(1))||sessionStorage.getItem('nype_dec_key:'+session)||'',api,data,stats,busy=false,timer,revealed=new Set();
 view=({resumen:'anclaje-resumen',ruleta:'anclaje-ruleta'})[view]||view;
@@ -13,8 +14,9 @@ function renderNav(){
   const anchors=data.config.blocks.find(b=>b.type==='anchors')?.items||[];
   const has=type=>data.config.blocks.some(b=>b.type===type);
   const views=[['panel','Panel'],...(has('anchors')?[['anclaje','Anclaje']]:[]),...(has('endowment')?[['dotacion','Dotación']]:[]),...(has('choice')?[['linda',data.config.blocks.find(b=>b.type==='choice').label]]:[]),...(has('framing')?[['enfermedad','Enfermedad']]:[]),...(has('problems')?[['problemas','Tres problemas']]:[]),...(has('intervals')?[['intervalos','Intervalos']]:[]),...(has('decile')?[['decil','Decil']]:[])];
-  const navLink=([v,l])=>`<a href="${link(v)}" class="${v===view||(v==='anclaje'&&view.startsWith('anclaje-'))?'active':''}" ${v===view?'aria-current="page"':''}>${e(l)}</a>`;
-  $('views').innerHTML='<div class="primary-views">'+views.map(navLink).join('')+'</div>'+(view.startsWith('anclaje')?'<div class="subviews">'+[['anclaje','Por pregunta'],['anclaje-resumen','Resumen de grupos'],...(data.config.blocks.find(b=>b.type==='anchors')?.roulette?[['anclaje-ruleta','Ruleta']]:[])].map(navLink).join('')+'</div>':'');
+  const navLink=([v,l])=>`<a href="${link(v)}" class="${v===view||(v==='anclaje'&&view.startsWith('anclaje-'))||(v==='dotacion'&&view.startsWith('dotacion-'))?'active':''}" ${v===view?'aria-current="page"':''}>${e(l)}</a>`;
+  const subviews=view.startsWith('dotacion')?[['dotacion','Los tres objetos'],...stats.endowment.map(g=>['dotacion-'+g.item.id,g.item.label])]:view.startsWith('anclaje')?[['anclaje','Por pregunta'],['anclaje-resumen','Resumen de grupos'],...(data.config.blocks.find(b=>b.type==='anchors')?.roulette?[['anclaje-ruleta','Ruleta']]:[])]:[];
+  $('views').innerHTML='<div class="primary-views">'+views.map(navLink).join('')+'</div>'+(subviews.length?'<div class="subviews">'+subviews.map(navLink).join('')+'</div>':'');
   $('views').querySelectorAll('a').forEach(a=>a.onclick=ev=>{if(ev.ctrlKey||ev.metaKey)return;ev.preventDefault();view=new URL(a.href).searchParams.get('v');history.replaceState(null,'',a.href);renderNav();render();});
 }
 function render(){
@@ -30,10 +32,11 @@ function render(){
     }).join('')}</div><p class="chart-note">Puntos: respuestas · blanca: mediana · punteadas: anclas. Cada panel tiene su propia escala; las medianas incluyen los valores fuera de escala.</p>`;
   } else if(view==='dotacion'){
     title='Dotación · comprar o vender el mismo objeto';
-    content=`<div class="facet-grid ownership-grid">${a.endowment.map(g=>{
-      const buy=g.rows.filter(r=>r.condition==='compra'),sell=g.rows.filter(r=>r.condition==='venta'),mb=median(buy.map(r=>r.parsed.value)),ms=median(sell.map(r=>r.parsed.value));
-      return `<article class="facet-card"><img class="result-product" src="${e(g.item.image)}" alt="${e(g.item.imageAlt)}"><h2>${e(g.item.label)}</h2><div class="valuation-medians"><div class="blue"><span>Compra · máximo</span><strong>$ ${fmt(mb,0)}</strong></div><div class="gold"><span>Venta · mínimo</span><strong>$ ${fmt(ms,0)}</strong></div></div>${compareGroups(g.rows,{domain:g.item.domain,conditions:['compra','venta'],labels:['Compra','Venta']})}<div class="ratio-stat">Mediana venta / compra <b>${mb>0&&ms!=null?fmt(ms/mb,2)+'×':'—'}</b></div></article>`;
-    }).join('')}</div><p class="chart-note">Pesos argentinos · misma foto para ambos grupos · puntos individuales y mediana blanca. Los valores fuera de escala se cuentan e incluyen en las medianas. Compra/venta hipotética; no hay una respuesta correcta.</p>`;
+    content=`<div class="facet-grid ownership-grid">${a.endowment.map(g=>ownershipOverviewCard(g,link('dotacion-'+g.item.id))).join('')}</div><p class="chart-note">Cada punto es una persona · blanca: mediana · pesos argentinos. Misma foto y objeto para los dos grupos. Los valores fuera de escala se cuentan y se incluyen en las medianas.</p>`;
+  } else if(view.startsWith('dotacion-')){
+    const group=a.endowment.find(g=>g.item.id===view.slice(9));
+    if(!group){view='dotacion';renderNav();render();return;}
+    title=`Dotación · ${group.item.label}`;content=ownershipDetail(group);
   } else if(view==='anclaje-resumen'&&data.config.blocks.find(b=>b.type==='anchors')?.design==='between'){
     title='Anclaje · comparación entre participantes';
     const low=a.anchorScores.filter(r=>r.condition==='baja'),high=a.anchorScores.filter(r=>r.condition==='alta'),difference=low.length&&high.length?mean(high.map(r=>r.value))-mean(low.map(r=>r.value)):null;
@@ -60,7 +63,8 @@ function render(){
     content=`<div class="two-cols"><div>${a.problems.map(g=>`<div class="problem-result"><h2>${e(g.item.label)} ${nLabel(g.rows.length)}</h2>${stacked(counts(g.rows,r=>r.parsed.classification,['correcta','intuitiva','otra']),g.rows.length)}${reveal?`<p class="answer-reveal">Correcta: ${g.item.correct} · intuitiva: ${g.item.intuitive}</p>`:''}<p class="chart-note">Mediana del tiempo: aciertos ${fmt(median(g.rows.filter(r=>r.parsed.classification==='correcta').map(r=>r.reaction_time_ms/1000)))} s · otras ${fmt(median(g.rows.filter(r=>r.parsed.classification!=='correcta').map(r=>r.reaction_time_ms/1000)))} s</p></div>`).join('')}</div><div>${discrete(a.scores,Array.from({length:a.problems.length+1},(_,i)=>String(i)),{xlabel:'Puntaje total'})}</div></div>`;
   } else {view='panel';render();return;}
   $('stage').innerHTML=`${demo?'<div class="demo-label">DATOS SIMULADOS · NO SON RESPUESTAS DE LA CLASE</div>':''}<header class="slide-header"><h1>${e(title)}</h1><span class="reception ${data.open?'is-open':''}">${data.open?'Recepción abierta':'Recepción cerrada'}</span></header><div class="slide-content">${content}</div><footer>NyPE · UTDT · ${e(session)}<span>${data.answers.length} respuestas guardadas</span></footer>`;
-  $('reveal').textContent=reveal?'Ocultar respuesta':'Mostrar respuesta';$('reveal').hidden=['panel','decil','dotacion'].includes(view);
+  $('stage').querySelectorAll('.ownership-expand').forEach(a=>a.onclick=event=>{if(event.ctrlKey||event.metaKey||event.shiftKey)return;event.preventDefault();view=new URL(a.href).searchParams.get('v');history.replaceState(null,'',a.href);renderNav();render();});
+  $('reveal').textContent=reveal?'Ocultar respuesta':'Mostrar respuesta';$('reveal').hidden=['panel','decil'].includes(view)||view.startsWith('dotacion');
   $('toggle-open').textContent=data.open?'Cerrar recepción':'Abrir recepción';
   $('live').textContent=`${demo?'DEMO · ':''}${a.n} participantes · actualizado ${new Date().toLocaleTimeString('es-AR',{timeZone:'America/Buenos_Aires'})}`;
 }

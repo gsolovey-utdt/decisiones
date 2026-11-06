@@ -13,6 +13,7 @@ App anónima en HTML/CSS/JavaScript, GitHub Pages y el Supabase compartido de la
 1. En el panel, **Administrar la sesión → Abrir recepción** o **Cerrar recepción**. El cierre bloquea ingresos y envíos; reabrir permite continuar.
 2. Proyectá el QR. Cada celular conserva identificador, grupo, orden y avance. Si falla la red, conserva el envío y permite reintentarlo.
 3. **Anclaje** reúne las cuatro preguntas, el resumen entre grupos y la ruleta. **Dotación** reúne los tres objetos, medianas, puntos individuales y cociente venta/compra. **Mostrar respuesta** revela los valores reales; el bloque de dotación no tiene una respuesta correcta.
+   En Dotación, **Ampliar** abre cada objeto con las dos medianas grandes, una comparación en palabras y un gráfico rotulado «Cada punto es una persona». Los enlaces por objeto se pueden guardar como favoritos y conservan el modo proyección. La frase se calcula con las medianas observadas y contempla ceros, grupos vacíos o diferencias en ambas direcciones.
 4. **Proyectar** usa 16:9; **Esc** sale. Los datos se actualizan cada cuatro segundos. Cada vista tiene su URL, que podés guardar como favorito.
 5. **Exportar CSV** descarga respuestas originales e interpretadas, versión del diseño, grupos, condición/ancla, orden y tiempos. No incluye claves ni tokens.
 6. **Borrar respuestas de esta sesión** pide escribir el código de sesión, borra solo esa sesión y cierra la recepción. El borrado es permanente. El archivo histórico es una sesión distinta y se conserva.
