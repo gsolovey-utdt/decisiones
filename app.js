@@ -1,5 +1,5 @@
-import {backend} from './api.js';
-import {escape as e,parseNumber,uniformInt} from './core.js';
+import {backend} from './api.js?v=2';
+import {escape as e,parseNumber,uniformInt} from './core.js?v=2';
 const params=new URLSearchParams(location.search),session=params.get('s')||'clase21',demo=params.get('demo')==='1',root=document.querySelector('#app');
 const key=`nype_decisiones:${demo?'demo:':''}${session}`;
 let api,state,local={},device,busy=false;

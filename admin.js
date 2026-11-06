@@ -1,6 +1,6 @@
-import {backend} from './api.js';
-import {analyze,fmt,mean,median,pct,spearman,csv,escape as e,groupBy} from './core.js';
-import {strip,discrete,continuous,scatter,stacked,compareGroups} from './charts.js';
+import {backend} from './api.js?v=2';
+import {analyze,fmt,mean,median,pct,spearman,csv,escape as e,groupBy} from './core.js?v=2';
+import {strip,discrete,continuous,scatter,stacked,compareGroups} from './charts.js?v=2';
 const params=new URLSearchParams(location.search),session=params.get('s')||'clase21',demo=params.get('demo')==='1';
 let view=params.get('v')||'panel',key=decodeURIComponent(location.hash.slice(1))||sessionStorage.getItem('nype_dec_key:'+session)||'',api,data,stats,busy=false,timer,revealed=new Set();
 view=({resumen:'anclaje-resumen',ruleta:'anclaje-ruleta'})[view]||view;

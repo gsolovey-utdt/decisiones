@@ -1,4 +1,4 @@
-import {escape as e,fmt,median,histogram,regression} from './core.js';
+import {escape as e,fmt,median,histogram,regression} from './core.js?v=2';
 export const COLORS={baja:'#5b8dee',alta:'#e8c547',compra:'#5b8dee',venta:'#e8c547',correcta:'#7ed6a1',intuitiva:'#e8c547',otra:'#9aa3bd'};
 const W=1000,H=390,L=90,R=55,T=38,B=65;
 const svg=body=>`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">${body}</svg>`;

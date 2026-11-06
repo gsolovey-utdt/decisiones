@@ -1,4 +1,4 @@
-import {makePlan,interpret,shuffle} from './core.js';
+import {makePlan,interpret,shuffle} from './core.js?v=2';
 const KEY='nype_decisiones_demo_v2';
 export function simulate(config,n=40,seed=21026){
   let z=seed>>>0;const rng=()=>{z=(1664525*z+1013904223)>>>0;return z/4294967296;};
