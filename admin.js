@@ -1,8 +1,10 @@
 import {backend} from './api.js';
 import {analyze,fmt,mean,median,pct,spearman,csv,escape as e,groupBy} from './core.js';
-import {strip,discrete,continuous,scatter,stacked} from './charts.js';
+import {strip,discrete,continuous,scatter,stacked,compareGroups} from './charts.js';
 const params=new URLSearchParams(location.search),session=params.get('s')||'clase21',demo=params.get('demo')==='1';
 let view=params.get('v')||'panel',key=decodeURIComponent(location.hash.slice(1))||sessionStorage.getItem('nype_dec_key:'+session)||'',api,data,stats,busy=false,timer,revealed=new Set();
+view=({resumen:'anclaje-resumen',ruleta:'anclaje-ruleta'})[view]||view;
+if(view.startsWith('anclaje-')&&!['anclaje-resumen','anclaje-ruleta'].includes(view))view='anclaje';
 const $=id=>document.getElementById(id), percent=(n,d)=>`${fmt(pct(n,d))} %`,nLabel=n=>`<span class="n-label">n = ${n}</span>`;
 const counts=(rows,field,keys)=>Object.fromEntries(keys.map(k=>[k,rows.filter(r=>field(r)===k).length]));
 const table=(headers,rows)=>`<table><thead><tr>${headers.map(h=>`<th>${e(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
@@ -10,8 +12,9 @@ function link(v,withDemo=demo){return `admin.html?s=${encodeURIComponent(session
 function renderNav(){
   const anchors=data.config.blocks.find(b=>b.type==='anchors')?.items||[];
   const has=type=>data.config.blocks.some(b=>b.type===type);
-  const views=[['panel','Panel'],...(has('problems')?[['problemas','Tres problemas']]:[]),...anchors.map(i=>['anclaje-'+i.id,i.label]),...(has('anchors')?[['resumen','Anclaje · resumen']]:[]),...(data.config.blocks.find(b=>b.type==='anchors')?.roulette?[['ruleta','Ruleta']]:[]),...(has('choice')?[['linda',data.config.blocks.find(b=>b.type==='choice').label]]:[]),...(has('framing')?[['enfermedad','Enfermedad']]:[]),...(has('intervals')?[['intervalos','Intervalos']]:[]),...(has('decile')?[['decil','Decil']]:[])];
-  $('views').innerHTML=views.map(([v,l])=>`<a href="${link(v)}" class="${v===view?'active':''}" ${v===view?'aria-current="page"':''}>${e(l)}</a>`).join('');
+  const views=[['panel','Panel'],...(has('anchors')?[['anclaje','Anclaje']]:[]),...(has('endowment')?[['dotacion','Dotación']]:[]),...(has('choice')?[['linda',data.config.blocks.find(b=>b.type==='choice').label]]:[]),...(has('framing')?[['enfermedad','Enfermedad']]:[]),...(has('problems')?[['problemas','Tres problemas']]:[]),...(has('intervals')?[['intervalos','Intervalos']]:[]),...(has('decile')?[['decil','Decil']]:[])];
+  const navLink=([v,l])=>`<a href="${link(v)}" class="${v===view||(v==='anclaje'&&view.startsWith('anclaje-'))?'active':''}" ${v===view?'aria-current="page"':''}>${e(l)}</a>`;
+  $('views').innerHTML='<div class="primary-views">'+views.map(navLink).join('')+'</div>'+(view.startsWith('anclaje')?'<div class="subviews">'+[['anclaje','Por pregunta'],['anclaje-resumen','Resumen de grupos'],...(data.config.blocks.find(b=>b.type==='anchors')?.roulette?[['anclaje-ruleta','Ruleta']]:[])].map(navLink).join('')+'</div>':'');
   $('views').querySelectorAll('a').forEach(a=>a.onclick=ev=>{if(ev.ctrlKey||ev.metaKey)return;ev.preventDefault();view=new URL(a.href).searchParams.get('v');history.replaceState(null,'',a.href);renderNav();render();});
 }
 function render(){
@@ -19,13 +22,26 @@ function render(){
   if(view==='panel'){
     title='La clase, en vivo';
     content=`<div class="two-cols"><div><div class="metrics"><div><strong>${a.n}</strong><span>empezaron</span></div><div><strong>${a.complete}</strong><span>terminaron todo</span></div></div>${table(['Actividad','Empezaron','Completaron'],data.config.blocks.map(b=>[e(b.label),a.blocks[b.id].started,a.blocks[b.id].completed]))}</div><div class="join-card"><img src="entregables/${e(session)}-qr.png" alt="QR para abrir la actividad" onerror="this.hidden=true"><p class="join-url">${e(new URL('index.html?s='+encodeURIComponent(session),location.href).href)}</p><p>Respondé desde tu celular.</p></div></div>`;
-  } else if(view.startsWith('anclaje-')){
-    const group=a.anchors.find(g=>g.item.id===view.slice(8));if(!group){view='panel';render();return;}
-    title=group.item.label;content=nLabel(group.rows.length)+strip(group.item,group.rows,reveal);
-  } else if(view==='resumen'){
+  } else if(view==='anclaje'){
+    title='Anclaje · cuatro preguntas, dos grupos';
+    content=`<div class="facet-grid anchors-grid">${a.anchors.map(g=>{
+      const low=g.rows.filter(r=>r.condition==='baja'),high=g.rows.filter(r=>r.condition==='alta');
+      return `<article class="facet-card"><header><h2>${e(g.item.label)}</h2><span>${e(g.item.unit)}</span></header>${compareGroups(g.rows,{domain:g.item.domain,anchors:[g.item.low,g.item.high],truth:g.item.real,reveal})}<div class="median-pair"><span class="blue">Baja <b>${fmt(median(low.map(r=>r.parsed.value)))}</b></span><span class="gold">Alta <b>${fmt(median(high.map(r=>r.parsed.value)))}</b></span>${reveal?`<span class="truth">Real <b>${fmt(g.item.real)}</b></span>`:''}</div></article>`;
+    }).join('')}</div><p class="chart-note">Puntos: respuestas · blanca: mediana · punteadas: anclas. Cada panel tiene su propia escala; las medianas incluyen los valores fuera de escala.</p>`;
+  } else if(view==='dotacion'){
+    title='Dotación · comprar o vender el mismo objeto';
+    content=`<div class="facet-grid ownership-grid">${a.endowment.map(g=>{
+      const buy=g.rows.filter(r=>r.condition==='compra'),sell=g.rows.filter(r=>r.condition==='venta'),mb=median(buy.map(r=>r.parsed.value)),ms=median(sell.map(r=>r.parsed.value));
+      return `<article class="facet-card"><img class="result-product" src="${e(g.item.image)}" alt="${e(g.item.imageAlt)}"><h2>${e(g.item.label)}</h2><div class="valuation-medians"><div class="blue"><span>Compra · máximo</span><strong>$ ${fmt(mb,0)}</strong></div><div class="gold"><span>Venta · mínimo</span><strong>$ ${fmt(ms,0)}</strong></div></div>${compareGroups(g.rows,{domain:g.item.domain,conditions:['compra','venta'],labels:['Compra','Venta']})}<div class="ratio-stat">Mediana venta / compra <b>${mb>0&&ms!=null?fmt(ms/mb,2)+'×':'—'}</b></div></article>`;
+    }).join('')}</div><p class="chart-note">Pesos argentinos · misma foto para ambos grupos · puntos individuales y mediana blanca. Los valores fuera de escala se cuentan e incluyen en las medianas. Compra/venta hipotética; no hay una respuesta correcta.</p>`;
+  } else if(view==='anclaje-resumen'&&data.config.blocks.find(b=>b.type==='anchors')?.design==='between'){
+    title='Anclaje · comparación entre participantes';
+    const low=a.anchorScores.filter(r=>r.condition==='baja'),high=a.anchorScores.filter(r=>r.condition==='alta'),difference=low.length&&high.length?mean(high.map(r=>r.value))-mean(low.map(r=>r.value)):null;
+    content=`<div class="two-cols"><div>${table(['Pregunta','Mediana baja','Mediana alta',...(reveal?['Real']:[])],a.anchors.map(g=>[e(g.item.label),fmt(median(g.rows.filter(r=>r.condition==='baja').map(r=>r.parsed.value))),fmt(median(g.rows.filter(r=>r.condition==='alta').map(r=>r.parsed.value))),...(reveal?[fmt(g.item.real)]:[])]))}<p class="chart-note">Cuatro anclas del mismo tipo por persona. Las condiciones se comparan entre grupos distintos.</p></div><div class="global-effect"><span>Diferencia entre grupos</span><strong>${fmt(difference,2)}</strong><p>Promedio de alta − promedio de baja</p>${compareGroups(a.anchorScores.map(r=>({...r,parsed:{value:r.value}})),{domain:[-2,2],truth:0,reveal})}<p class="chart-note">Cada punto es una persona: promedio de ln(estimación / valor real) en sus cuatro respuestas. n baja=${low.length} · n alta=${high.length}. ${a.indexExcluded} excluidos por valores no positivos.</p></div></div>`;
+  } else if(view==='anclaje-resumen'){
     title='Anclaje · resumen';
     content=`<div class="two-cols"><div>${table(['Ítem','Ancla baja','Ancla alta',...(reveal?['Real']:[])],a.anchors.map(g=>{const low=g.rows.filter(r=>r.condition==='baja'),high=g.rows.filter(r=>r.condition==='alta');return [e(g.item.label),`${fmt(median(low.map(r=>r.parsed.value)))} <small>n=${low.length}</small>`,`${fmt(median(high.map(r=>r.parsed.value)))} <small>n=${high.length}</small>`,...(reveal?[fmt(g.item.real)]:[])];}))}<p class="chart-note"><span class="blue">● Baja</span> · <span class="gold">● Alta</span> · medianas</p></div><div><div class="metrics"><div><strong>${percent(a.indices.filter(v=>v>0).length,a.indices.length)}</strong><span>con índice positivo · n = ${a.indices.length}</span></div></div>${continuous(a.indices,{domain:[-2,2],xlabel:'Índice de anclaje',reference:0})}</div></div><p class="chart-note">Por persona: promedio de ln(estimación / real) con alta − promedio con baja. Se incluyen los cuatro ítems completos y estimaciones positivas. ${a.indexExcluded} excluidos por valores no positivos.</p>`;
-  } else if(view==='ruleta'){
+  } else if(view==='anclaje-ruleta'){
     title='Un número y una estimación';content=`<p class="lead-stat">Spearman ρ = <b>${fmt(spearman(a.roulette.map(p=>p.x),a.roulette.map(p=>p.y)),3)}</b> ${nLabel(a.roulette.length)}</p>${scatter(a.roulette,reveal,data.config.blocks.find(b=>b.type==='anchors').roulette.real)}`;
   } else if(view==='linda'){
     title='¿Qué es más probable?';const block=data.config.blocks.find(b=>b.type==='choice'),rows=a.byBlock[block.id]||[];
@@ -44,7 +60,7 @@ function render(){
     content=`<div class="two-cols"><div>${a.problems.map(g=>`<div class="problem-result"><h2>${e(g.item.label)} ${nLabel(g.rows.length)}</h2>${stacked(counts(g.rows,r=>r.parsed.classification,['correcta','intuitiva','otra']),g.rows.length)}${reveal?`<p class="answer-reveal">Correcta: ${g.item.correct} · intuitiva: ${g.item.intuitive}</p>`:''}<p class="chart-note">Mediana del tiempo: aciertos ${fmt(median(g.rows.filter(r=>r.parsed.classification==='correcta').map(r=>r.reaction_time_ms/1000)))} s · otras ${fmt(median(g.rows.filter(r=>r.parsed.classification!=='correcta').map(r=>r.reaction_time_ms/1000)))} s</p></div>`).join('')}</div><div>${discrete(a.scores,Array.from({length:a.problems.length+1},(_,i)=>String(i)),{xlabel:'Puntaje total'})}</div></div>`;
   } else {view='panel';render();return;}
   $('stage').innerHTML=`${demo?'<div class="demo-label">DATOS SIMULADOS · NO SON RESPUESTAS DE LA CLASE</div>':''}<header class="slide-header"><h1>${e(title)}</h1><span class="reception ${data.open?'is-open':''}">${data.open?'Recepción abierta':'Recepción cerrada'}</span></header><div class="slide-content">${content}</div><footer>NyPE · UTDT · ${e(session)}<span>${data.answers.length} respuestas guardadas</span></footer>`;
-  $('reveal').textContent=reveal?'Ocultar respuesta':'Mostrar respuesta';$('reveal').hidden=['panel','decil'].includes(view);
+  $('reveal').textContent=reveal?'Ocultar respuesta':'Mostrar respuesta';$('reveal').hidden=['panel','decil','dotacion'].includes(view);
   $('toggle-open').textContent=data.open?'Cerrar recepción':'Abrir recepción';
   $('live').textContent=`${demo?'DEMO · ':''}${a.n} participantes · actualizado ${new Date().toLocaleTimeString('es-AR',{timeZone:'America/Buenos_Aires'})}`;
 }

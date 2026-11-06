@@ -1,6 +1,6 @@
 import {BACKEND} from './config/backend.js';
 export async function backend(session,demo=false){
-  if(demo){const {DemoBackend}=await import('./demo.js');const r=await fetch(`./config/${encodeURIComponent(session)}.json`);if(!r.ok)throw Error('No existe esa sesión de demostración.');return new DemoBackend(await r.json());}
+  if(demo){const {DemoBackend}=await import('./demo.js');const r=await fetch(`./config/${encodeURIComponent(session)}.json`,{cache:'no-store'});if(!r.ok)throw Error('No existe esa sesión de demostración.');return new DemoBackend(await r.json());}
   return {async call(name,p={}){
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),20000);
     try {

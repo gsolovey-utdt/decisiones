@@ -1,19 +1,13 @@
-# Validación · 05/11/2026
+# Validación · versión 2 · 06/11/2026
 
-| Prueba | Resultado |
-|---|---|
-| Motor y análisis (Node) | 9 pruebas, 9 aprobadas |
-| SQL, funciones, bloqueo de retroceso, idempotencia, RLS, claves, cierre y reinicio | Aprobado en PostgreSQL local (PGlite 0.5.15) |
-| 40 participantes en Supabase real | 40 completos, 880 respuestas, enfermedad 20 ganancias / 20 pérdidas |
-| Latencia del envío en carga | p50 171 ms; p95 272 ms |
-| Datos de carga | Borrados; recepción cerrada |
-| Recorrido web | 22 pantallas, recarga y recuperación, corte de red y reintento, validación, ruleta y mensaje final verificados |
-| Proyector | Todas las clases de vista inspeccionadas con 40 datos simulados en 1280×720 |
-| Adaptación a celular | Inspección en viewport de 390 px; no es un dispositivo físico |
-| iOS Safari físico | Pendiente |
-| Android Chrome físico | Pendiente |
-| Cuarenta teléfonos físicos simultáneos | Pendiente; la carga ejecutada fue por HTTP contra Supabase |
-| Piloto humano de ≤ 8 minutos | Pendiente; la duración no se infiere del script automatizado |
-| Orden CRT y exposición previa | Máquinas → lago → pelota; etiqueta docente «(ya vista en la clase 1)». Migración probada desde la configuración anterior e idempotencia verificada |
+- Nueve pruebas de motor, interpretación, estadísticas, configuración y CSV: aprobadas.
+- PostgreSQL local (PGlite): migración repetible, archivo anterior conservado íntegro, claves y RLS, orden, reintento, cierre y reinicio: aprobados.
+- Carga SQL local: 40 participantes, 760 respuestas, cuatro celdas de 10, enfermedad 20/20, condiciones estables por persona.
+- Recorrido en navegador a 390 px: 19 pantallas, fotos, reanudación en el mismo objeto, precios con puntos de miles y cero, CRT en orden y cierre sin resultados: verificado.
+- Proyector 1280×720: cuatro anclas juntas, resumen entre grupos y tres objetos juntos; valores reales ocultos al inicio: verificado.
+- Carga HTTP en Supabase de esta versión: pendiente de activar la migración.
+- Pendientes: iOS Safari y Android Chrome físicos, cuarenta teléfonos físicos y piloto humano de hasta ocho minutos.
 
-Los tiempos y las respuestas del generador son simulados. Las estimaciones ancladas se producen con desplazamientos multiplicativos según condición. El demo nunca escribe en la base real. Los valores extremos se excluyen solo del dibujo, no de medianas, índices o correlaciones. El índice exige los cuatro ítems de ancla fija completos y valores positivos; la cobertura y el puntaje total usan bloques completos.
+El demo se etiqueta permanentemente como simulado y no escribe en Supabase. Las pruebas por HTTP no equivalen a una prueba en teléfonos físicos. La prueba automatizada no mide el tiempo de lectura ni razonamiento.
+
+Antecedente de versión 1 (05/11): carga real de 40 participantes y 880 respuestas, enfermedad 20/20, p50 de envío 171 ms y p95 272 ms. Sus registros de carga se borraron. Los datos de clase posteriores se conservan al migrar, dentro de clase21-v1.

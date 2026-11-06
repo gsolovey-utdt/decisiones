@@ -45,6 +45,12 @@ create table if not exists public.nype_dec_answers (
   unique(session_id,participant_id,event_id),
   foreign key(session_id,participant_id) references public.nype_dec_participants(session_id,participant_id) on delete cascade
 );
+-- Safe upgrades for existing installations. Legacy responses retain version 1.
+alter table public.nype_dec_sessions add column if not exists factor_deck text[] not null default '{}';
+alter table public.nype_dec_participants add column if not exists assignment jsonb not null default '{}';
+alter table public.nype_dec_participants add column if not exists design_version integer not null default 1;
+alter table public.nype_dec_answers add column if not exists assignment jsonb not null default '{}';
+alter table public.nype_dec_answers add column if not exists design_version integer not null default 1;
 alter table public.nype_dec_sessions enable row level security;
 alter table public.nype_dec_participants enable row level security;
 alter table public.nype_dec_answers enable row level security;
@@ -55,7 +61,7 @@ language sql volatile set search_path=public,extensions,pg_temp as $$
   select coalesce(jsonb_agg(v order by random()),'[]'::jsonb) from jsonb_array_elements(a) v
 $$;
 
-create or replace function public._nype_dec_plan(c jsonb, frame text) returns jsonb
+create or replace function public._nype_dec_plan(c jsonb, frame text, assignment jsonb) returns jsonb
 language plpgsql volatile set search_path=public,extensions,pg_temp as $$
 declare plan jsonb='[]'; b jsonb; i jsonb; s jsonb; highs jsonb; items jsonb;
   cond text; a numeric; options jsonb; idx integer;
@@ -66,7 +72,7 @@ begin
       select jsonb_agg(value->>'id') into highs from
         (select value from jsonb_array_elements(public._nype_dec_shuffle(b->'items')) limit jsonb_array_length(b->'items')/2) q;
       for i in select value from jsonb_array_elements(items) loop
-        cond=case when highs ? (i->>'id') then 'alta' else 'baja' end;
+        cond=case when b->>'design'='between' then coalesce(assignment->>'anchorGroup',case when random()<.5 then 'baja' else 'alta' end) when highs ? (i->>'id') then 'alta' else 'baja' end;
         a=(i->>case when cond='alta' then 'high' else 'low' end)::numeric;
         s=jsonb_build_object('block',b->>'id','item',i->>'id','condition',cond,'anchor',a,'unit',i->>'unit');
         plan=plan||jsonb_build_array(s||jsonb_build_object('kind','compare','prompt',replace(i->>'compare','{A}',replace(to_char(a,'FM999,999,999,990'),',','.')),'options',jsonb_build_array(jsonb_build_object('id','mas','text','Más'),jsonb_build_object('id','menos','text','Menos'))));
@@ -78,6 +84,12 @@ begin
         plan=plan||jsonb_build_array(s||jsonb_build_object('kind','compare','prompt',i->>'compare','options',jsonb_build_array(jsonb_build_object('id','mas','text','Más'),jsonb_build_object('id','menos','text','Menos'))));
         plan=plan||jsonb_build_array(s||jsonb_build_object('kind','estimate','prompt',i->>'prompt'));
       end if;
+    elsif b->>'type'='endowment' then
+      cond=coalesce(assignment->>'ownershipGroup','compra');
+      items=case when coalesce((b->>'shuffle')::boolean,false) then public._nype_dec_shuffle(b->'items') else b->'items' end;
+      for i in select value from jsonb_array_elements(items) loop
+        plan=plan||jsonb_build_array(jsonb_build_object('block',b->>'id','item',i->>'id','kind','valuation','condition',cond,'prompt',i->'prompts'->>cond,'text',i->>'description','instruction',b->>'instruction','unit',b->>'unit','image',i->>'image','imageAlt',i->>'imageAlt'));
+      end loop;
     elsif b->>'type' in ('choice','framing','decile') then
       if b->>'type'='choice' then
         options=case when coalesce((b->>'shuffle')::boolean,false) then public._nype_dec_shuffle(b->'options') else b->'options' end;
@@ -98,6 +110,12 @@ begin
   end loop;
   return plan;
 end $$;
+
+-- Compatibility wrapper; production join always supplies the balanced assignment.
+create or replace function public._nype_dec_plan(c jsonb,frame text) returns jsonb
+language sql volatile set search_path=public,extensions,pg_temp as $$
+ select public._nype_dec_plan(c,frame,jsonb_build_object('anchorGroup',case when random()<.5 then 'baja' else 'alta' end,'ownershipGroup',case when random()<.5 then 'compra' else 'venta' end))
+$$;
 
 create or replace function public._nype_dec_number(raw text, free boolean default false) returns numeric
 language plpgsql immutable set search_path=public,extensions,pg_temp as $$
@@ -138,7 +156,7 @@ end $$;
 
 create or replace function public.nype_dec_join(p_session text,p_participant uuid,p_token text) returns jsonb
 language plpgsql security definer set search_path=public,extensions,pg_temp as $$
-declare s public.nype_dec_sessions;p public.nype_dec_participants; deck text[]; frame text;
+declare s public.nype_dec_sessions;p public.nype_dec_participants; deck text[]; frame text; factors text[]; cell text; assigned jsonb='{}';
 begin
   if p_token is null or length(p_token)<>64 or p_token !~ '^[0-9a-f]{64}$' then raise exception 'UNAUTHORIZED';end if;
   select * into s from public.nype_dec_sessions where id=p_session for update;
@@ -151,9 +169,17 @@ begin
     deck=s.frame_deck;
     if cardinality(deck)=0 then deck=case when random()<.5 then array['ganancias','perdidas'] else array['perdidas','ganancias'] end;end if;
     frame=deck[1];
-    update public.nype_dec_sessions set frame_deck=deck[2:cardinality(deck)] where id=p_session;
-    insert into public.nype_dec_participants(session_id,participant_id,token_hash,plan)
-    values(p_session,p_participant,encode(extensions.digest(p_token,'sha256'),'hex'),public._nype_dec_plan(s.config,frame)) returning * into p;
+    factors=s.factor_deck;
+    if s.config->'design'->>'type'='between' then
+      if cardinality(factors)=0 then
+        select array_agg(v order by random()) into factors from unnest(array['baja:compra','baja:venta','alta:compra','alta:venta']) v;
+      end if;
+      cell=factors[1];factors=factors[2:cardinality(factors)];
+      assigned=jsonb_build_object('cell',cell,'anchorGroup',split_part(cell,':',1),'ownershipGroup',split_part(cell,':',2));
+    end if;
+    update public.nype_dec_sessions set frame_deck=deck[2:cardinality(deck)],factor_deck=factors where id=p_session;
+    insert into public.nype_dec_participants(session_id,participant_id,token_hash,plan,assignment,design_version)
+    values(p_session,p_participant,encode(extensions.digest(p_token,'sha256'),'hex'),public._nype_dec_plan(s.config,frame,assigned),assigned,coalesce((s.config->>'designVersion')::integer,1)) returning * into p;
   end if;
   return public._nype_dec_state(s,p);
 end $$;
@@ -200,8 +226,8 @@ begin
     end if;
   end if;
   select coalesce(jsonb_agg(o->>'id'),'[]') into options from jsonb_array_elements(coalesce(q->'options','[]')) o;
-  insert into public.nype_dec_answers(session_id,participant_id,presentation_order,event_id,block,item,kind,condition,anchor,option_order,raw,parsed,shown_at,answered_at,reaction_time_ms,server_shown_at)
-  values(p_session,p_participant,p_order,p_event,q->>'block',q->>'item',q->>'kind',q->>'condition',case when q->>'condition'='ruleta' then p.spin else (q->>'anchor')::numeric end,options,raw,parsed,p_shown_at,p_answered_at,extract(epoch from (p_answered_at-p_shown_at))*1000,p.server_shown_at);
+  insert into public.nype_dec_answers(session_id,participant_id,presentation_order,event_id,block,item,kind,condition,anchor,option_order,raw,parsed,shown_at,answered_at,reaction_time_ms,server_shown_at,assignment,design_version)
+  values(p_session,p_participant,p_order,p_event,q->>'block',q->>'item',q->>'kind',q->>'condition',case when q->>'condition'='ruleta' then p.spin else (q->>'anchor')::numeric end,options,raw,parsed,p_shown_at,p_answered_at,extract(epoch from (p_answered_at-p_shown_at))*1000,p.server_shown_at,p.assignment,p.design_version);
   update public.nype_dec_participants set cursor=cursor+1,spin=p.spin,server_shown_at=clock_timestamp(),
     completed_at=case when cursor+1=jsonb_array_length(plan) then clock_timestamp() end
     where session_id=p_session and participant_id=p_participant returning * into p;
@@ -218,16 +244,16 @@ begin
   elsif p_action='close' then update public.nype_dec_sessions set is_open=false where id=p_session;
   elsif p_action='clear' then
     delete from public.nype_dec_participants where session_id=p_session;
-    update public.nype_dec_sessions set is_open=false,epoch=epoch+1,frame_deck='{}' where id=p_session;
+    update public.nype_dec_sessions set is_open=false,epoch=epoch+1,frame_deck='{}',factor_deck='{}' where id=p_session;
   elsif p_action<>'snapshot' then raise exception 'Acción inválida';end if;
   select * into s from public.nype_dec_sessions where id=p_session;
-  select coalesce(jsonb_agg(jsonb_build_object('participant_id',p.participant_id,'started_at',p.started_at,'completed_at',p.completed_at,'current_block',p.plan->p.cursor->>'block') order by p.started_at),'[]') into participants from public.nype_dec_participants p where p.session_id=p_session;
+  select coalesce(jsonb_agg(jsonb_build_object('participant_id',p.participant_id,'started_at',p.started_at,'completed_at',p.completed_at,'current_block',p.plan->p.cursor->>'block','assignment',p.assignment,'design_version',p.design_version) order by p.started_at),'[]') into participants from public.nype_dec_participants p where p.session_id=p_session;
   select coalesce(jsonb_agg((to_jsonb(a)-'event_id'-'session_id'-'presentation_order')||jsonb_build_object('order',a.presentation_order) order by a.participant_id,a.presentation_order),'[]') into answers from public.nype_dec_answers a where a.session_id=p_session;
   return jsonb_build_object('open',s.is_open,'epoch',s.epoch,'config',s.config,'participants',participants,'answers',answers);
 end $$;
 
 -- Publicly callable endpoints are the only access. Internal helpers and tables stay private.
-revoke all on function public._nype_dec_shuffle(jsonb),public._nype_dec_plan(jsonb,text),public._nype_dec_number(text,boolean),public._nype_dec_state(public.nype_dec_sessions,public.nype_dec_participants) from public,anon,authenticated;
+revoke all on function public._nype_dec_shuffle(jsonb),public._nype_dec_plan(jsonb,text),public._nype_dec_plan(jsonb,text,jsonb),public._nype_dec_number(text,boolean),public._nype_dec_state(public.nype_dec_sessions,public.nype_dec_participants) from public,anon,authenticated;
 revoke all on function public.nype_dec_status(text),public.nype_dec_join(text,uuid,text),public.nype_dec_answer(text,uuid,text,integer,integer,jsonb,timestamptz,timestamptz,uuid),public.nype_dec_admin(text,text,text) from public,anon,authenticated;
 grant execute on function public.nype_dec_status(text),public.nype_dec_join(text,uuid,text),public.nype_dec_answer(text,uuid,text,integer,integer,jsonb,timestamptz,timestamptz,uuid),public.nype_dec_admin(text,text,text) to anon;
 notify pgrst,'reload schema';

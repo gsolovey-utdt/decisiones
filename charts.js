@@ -1,5 +1,5 @@
 import {escape as e,fmt,median,histogram,regression} from './core.js';
-export const COLORS={baja:'#5b8dee',alta:'#e8c547',correcta:'#7ed6a1',intuitiva:'#e8c547',otra:'#9aa3bd'};
+export const COLORS={baja:'#5b8dee',alta:'#e8c547',compra:'#5b8dee',venta:'#e8c547',correcta:'#7ed6a1',intuitiva:'#e8c547',otra:'#9aa3bd'};
 const W=1000,H=390,L=90,R=55,T=38,B=65;
 const svg=body=>`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">${body}</svg>`;
 const text=(x,y,s,extra='')=>`<text x="${x}" y="${y}" ${extra}>${e(s)}</text>`;
@@ -50,4 +50,20 @@ export function scatter(points,reveal,real=88){
 }
 export function stacked(counts,n,labels=Object.keys(counts)){
   return `<div class="stacked">${Object.entries(counts).filter(([,v])=>v).map(([k,v],i)=>`<div style="width:${100*v/n}%;background:${COLORS[k]||[COLORS.baja,COLORS.alta][i%2]}" title="${e(k)}: ${v}">${100*v/n>=9?fmt(100*v/n,0)+' %':''}</div>`).join('')}</div><div class="stack-legend">${Object.entries(counts).map(([k,v],i)=>`<span><i style="background:${COLORS[k]||[COLORS.baja,COLORS.alta][i%2]}"></i>${e(labels[i]||k)}: ${fmt(n?100*v/n:0)} % (${v})</span>`).join('')}</div>`;
+}
+
+// Small multiples: each object has its own units, keeping all individual responses.
+export function compareGroups(rows,{domain,conditions=['baja','alta'],labels=['Baja','Alta'],anchors,truth,reveal=false}={}){
+  const [min,max]=domain,x=v=>145+(v-min)/(max-min)*410;let out='';
+  conditions.forEach((condition,j)=>{
+    const y=40+j*65,group=rows.filter(r=>r.condition===condition),visible=group.filter(r=>r.parsed.value>=min&&r.parsed.value<=max),outside=group.length-visible.length,med=median(group.map(r=>r.parsed.value)),color=COLORS[condition];
+    out+=`<text x="4" y="${y-10}" fill="${color}" font-size="25">${e(labels[j])}</text><text x="4" y="${y+20}" font-size="20">n=${group.length}${outside?` · +${outside} fuera`:''}</text>`;
+    out+=line(145,y,555,y,'#363b4d');
+    visible.sort((a,b)=>a.parsed.value-b.parsed.value).forEach((r,k)=>{out+=`<circle cx="${x(r.parsed.value)}" cy="${y+((k*3)%7-3)*4}" r="5.8" fill="${color}" opacity=".72"/>`;});
+    if(anchors?.[j]!=null)out+=line(x(anchors[j]),y-24,x(anchors[j]),y+24,color,'stroke-width="2" stroke-dasharray="5 4"');
+    if(med!=null){const pos=Math.max(145,Math.min(555,x(med)));out+=line(pos,y-22,pos,y+22,'#fff','stroke-width="4"');}
+  });
+  for(let k=0;k<=2;k++){const v=min+(max-min)*k/2;out+=`<text x="${x(v)}" y="157" text-anchor="middle" font-size="22">${e(fmt(v))}</text>`;}
+  if(reveal&&truth!=null)out+=line(x(truth),15,x(truth),130,'#7ed6a1','stroke-width="3" stroke-dasharray="6 4"');
+  return `<svg class="facet-chart" viewBox="0 0 600 170" role="img" aria-label="${e(labels[0])} y ${e(labels[1])}: puntos individuales y medianas">${out}</svg>`;
 }

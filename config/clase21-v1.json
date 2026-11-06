@@ -1,0 +1,212 @@
+{
+  "id": "clase21-v1",
+  "title": "Actividades de clase",
+  "intro": "Respondé solo o sola, sin mirar el celular de al lado. Es anónimo y no hay respuestas que sumen o resten: estamos juntando datos para la clase. Respondé como lo harías normalmente.",
+  "blocks": [
+    {
+      "id": "anclaje",
+      "type": "anchors",
+      "label": "Anclaje",
+      "items": [
+        {
+          "id": "gandhi",
+          "label": "Gandhi",
+          "compare": "Al momento de su muerte, ¿Gandhi tenía más o menos de {A} años?",
+          "prompt": "¿Cuántos años creés que tenía Gandhi cuando murió?",
+          "unit": "años",
+          "low": 36,
+          "high": 114,
+          "real": 78,
+          "domain": [
+            0,
+            130
+          ]
+        },
+        {
+          "id": "lennon",
+          "label": "John Lennon",
+          "compare": "Al momento de su muerte, ¿John Lennon tenía más o menos de {A} años?",
+          "prompt": "¿Cuántos años creés que tenía John Lennon cuando murió?",
+          "unit": "años",
+          "low": 18,
+          "high": 58,
+          "real": 40,
+          "domain": [
+            0,
+            100
+          ]
+        },
+        {
+          "id": "obelisco",
+          "label": "Obelisco",
+          "compare": "¿El Obelisco de Buenos Aires mide más o menos de {A} centímetros de alto?",
+          "prompt": "¿Cuántos centímetros creés que mide el Obelisco?",
+          "unit": "centímetros",
+          "low": 3120,
+          "high": 9860,
+          "real": 6750,
+          "domain": [
+            0,
+            15000
+          ]
+        },
+        {
+          "id": "onu",
+          "label": "ONU",
+          "compare": "¿La ONU tiene más o menos de {A} países miembros?",
+          "prompt": "¿Cuántos países miembros creés que tiene la ONU?",
+          "unit": "países",
+          "low": 89,
+          "high": 282,
+          "real": 193,
+          "domain": [
+            0,
+            350
+          ]
+        }
+      ],
+      "roulette": {
+        "id": "piano",
+        "label": "Piano",
+        "compare": "¿Un piano tiene más o menos de {A} teclas?",
+        "prompt": "¿Cuántas teclas creés que tiene un piano?",
+        "unit": "teclas",
+        "real": 88,
+        "domain": [
+          0,
+          200
+        ]
+      }
+    },
+    {
+      "id": "linda",
+      "type": "choice",
+      "label": "Linda",
+      "idItem": "linda",
+      "shuffle": true,
+      "text": "Linda tiene 31 años, es soltera, franca y muy inteligente. Estudió filosofía. Como estudiante, le preocupaban mucho los temas de discriminación y justicia social, y participó en manifestaciones antinucleares.",
+      "prompt": "¿Qué es más probable?",
+      "options": [
+        {
+          "id": "simple",
+          "text": "Linda es cajera de banco."
+        },
+        {
+          "id": "conjuncion",
+          "text": "Linda es cajera de banco y participa activamente en el movimiento feminista."
+        }
+      ]
+    },
+    {
+      "id": "enfermedad",
+      "type": "framing",
+      "label": "Enfermedad",
+      "idItem": "enfermedad",
+      "text": "Imaginá que el país se prepara para el brote de una enfermedad aviar poco común que, se espera, va a matar a 600 personas. Se propusieron dos programas para combatirla. Las estimaciones científicas exactas de sus consecuencias son las siguientes.",
+      "prompt": "¿Qué programa elegís?",
+      "versions": {
+        "ganancias": [
+          {
+            "id": "segura",
+            "text": "Programa A: se van a salvar 200 personas."
+          },
+          {
+            "id": "riesgosa",
+            "text": "Programa B: hay una probabilidad de 1/3 de que se salven las 600 personas y una probabilidad de 2/3 de que no se salve nadie."
+          }
+        ],
+        "perdidas": [
+          {
+            "id": "segura",
+            "text": "Programa C: van a morir 400 personas."
+          },
+          {
+            "id": "riesgosa",
+            "text": "Programa D: hay una probabilidad de 1/3 de que no muera nadie y una probabilidad de 2/3 de que mueran las 600."
+          }
+        ]
+      }
+    },
+    {
+      "id": "intervalos",
+      "type": "intervals",
+      "label": "Intervalos",
+      "instruction": "Para cada cantidad, escribí un mínimo y un máximo tales que estés 98 % seguro o segura de que el valor real está entre los dos. Respondé aunque sepas muy poco del tema.",
+      "items": [
+        {
+          "id": "nobel",
+          "label": "Premio Nobel de la Paz",
+          "prompt": "Año en que se entregó por primera vez el Premio Nobel de la Paz",
+          "unit": "año",
+          "real": 1901
+        },
+        {
+          "id": "luna",
+          "label": "Tierra–Luna",
+          "prompt": "Distancia de la Tierra a la Luna, en kilómetros",
+          "unit": "kilómetros",
+          "real": 384403
+        },
+        {
+          "id": "oxford",
+          "label": "Oxford (2014)",
+          "prompt": "Cantidad de estudiantes de la Universidad de Oxford en 2014",
+          "unit": "estudiantes",
+          "real": 22384
+        },
+        {
+          "id": "espacio",
+          "label": "Personas en el espacio",
+          "prompt": "Cantidad de personas que habían viajado al espacio hasta 2013",
+          "unit": "personas",
+          "real": 536
+        },
+        {
+          "id": "dominadas",
+          "label": "Dominadas en 24 horas",
+          "prompt": "Récord mundial de dominadas en barra en 24 horas",
+          "unit": "dominadas",
+          "real": 4321
+        }
+      ]
+    },
+    {
+      "id": "decil",
+      "type": "decile",
+      "label": "Decil",
+      "idItem": "decil",
+      "prompt": "Si al final de la materia se ordena a todo el curso por nota final y se lo divide en diez grupos del mismo tamaño, ¿en cuál creés que vas a quedar?"
+    },
+    {
+      "id": "problemas",
+      "type": "problems",
+      "label": "Tres problemas",
+      "items": [
+        {
+          "id": "maquinas",
+          "label": "Máquinas",
+          "prompt": "5 máquinas tardan 5 minutos en fabricar 5 artefactos. ¿Cuántos minutos tardan 100 máquinas en fabricar 100 artefactos?",
+          "unit": "minutos",
+          "correct": 5,
+          "intuitive": 100
+        },
+        {
+          "id": "lago",
+          "label": "Lago",
+          "prompt": "Un lago está empezando a congelarse y cada día que pasa el hielo duplica su tamaño. Si va a tardar 48 días en congelarse por completo, ¿cuántos días pasan hasta que se congele la mitad?",
+          "unit": "días",
+          "correct": 47,
+          "intuitive": 24
+        },
+        {
+          "id": "pelota",
+          "label": "Pelota y raqueta (ya vista en la clase 1)",
+          "prompt": "Una raqueta y una pelota cuestan $1.100. La raqueta cuesta $1.000 más que la pelota. ¿Cuánto cuesta la pelota?",
+          "unit": "pesos",
+          "correct": 50,
+          "intuitive": 100
+        }
+      ]
+    }
+  ]
+}

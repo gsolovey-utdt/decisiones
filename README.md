@@ -1,38 +1,38 @@
 # Decisiones · NyPE, UTDT
 
-HTML/CSS/JavaScript sin compilación, GitHub Pages y el mismo Supabase y estilo de `two-armed-bandit` y `pilas-emociones`. Anónimo, 22 pantallas, respuestas y avance persistentes.
-
-CRT en orden fijo: **máquinas → lago → pelota y raqueta**. El docente ve la última como «(ya vista en la clase 1)»; esa etiqueta no aparece en el celular.
+App anónima en HTML/CSS/JavaScript, GitHub Pages y el Supabase compartido de la materia. Versión 2: **19 pantallas**, sin decil ni intervalos, con fotos y efecto de dotación.
 
 ## Enlaces
 
-- [Estudiantes](https://gsolovey-utdt.github.io/decisiones/index.html?s=clase21) y [QR PNG](entregables/clase21-qr.png).
-- [Docente](https://gsolovey-utdt.github.io/decisiones/admin.html?s=clase21&v=panel): ingresá la clave privada. El enlace completo con clave está en `entregables/ACCESO-DOCENTE-clase21.txt`, excluido de Git.
-- [Demo de 40 participantes](https://gsolovey-utdt.github.io/decisiones/admin.html?s=clase21&demo=1): datos simulados en el navegador, sin escribir en Supabase.
+- [Estudiantes](https://gsolovey-utdt.github.io/decisiones/index.html?s=clase21) · [QR PNG](entregables/clase21-qr.png).
+- [Docente](https://gsolovey-utdt.github.io/decisiones/admin.html?s=clase21&v=panel). La clave y el enlace completo están en el archivo local privado `entregables/ACCESO-DOCENTE-clase21.txt`.
+- [Demo de anclaje](https://gsolovey-utdt.github.io/decisiones/admin.html?s=clase21&v=anclaje&demo=1) · [Demo de dotación](https://gsolovey-utdt.github.io/decisiones/admin.html?s=clase21&v=dotacion&demo=1). Generan 40 casos simulados sin escribir en Supabase.
 
-## En clase
+## Manejo en clase
 
-1. Abrí el panel docente y desplegá **Administrar la sesión → Abrir recepción**. Empieza cerrada.
-2. Proyectá el QR. La barra docente ofrece una URL para cada vista; podés abrirlas en pestañas o guardarlas como favoritos. **Proyectar** usa 16:9; **Esc** sale.
-3. Las vistas se actualizan cada cuatro segundos y muestran n. Las soluciones y los valores reales empiezan ocultos: tocá **Mostrar respuesta** cuando corresponda.
-4. **Cerrar recepción** bloquea ingresos y envíos. Los celulares muestran «La actividad ya cerró». Reabrir permite continuar.
-5. **Exportar CSV** descarga respuestas originales e interpretadas, condición/ancla, orden de pantallas/opciones y tiempos. UTF-8 con BOM y protección contra fórmulas de planilla.
-6. **Borrar respuestas de esta sesión** pide escribir `clase21`, vacía únicamente esa sesión, cierra la recepción e invalida envíos pendientes anteriores. El borrado es permanente.
+1. En el panel, **Administrar la sesión → Abrir recepción** o **Cerrar recepción**. El cierre bloquea ingresos y envíos; reabrir permite continuar.
+2. Proyectá el QR. Cada celular conserva identificador, grupo, orden y avance. Si falla la red, conserva el envío y permite reintentarlo.
+3. **Anclaje** reúne las cuatro preguntas, el resumen entre grupos y la ruleta. **Dotación** reúne los tres objetos, medianas, puntos individuales y cociente venta/compra. **Mostrar respuesta** revela los valores reales; el bloque de dotación no tiene una respuesta correcta.
+4. **Proyectar** usa 16:9; **Esc** sale. Los datos se actualizan cada cuatro segundos. Cada vista tiene su URL, que podés guardar como favorito.
+5. **Exportar CSV** descarga respuestas originales e interpretadas, versión del diseño, grupos, condición/ancla, orden y tiempos. No incluye claves ni tokens.
+6. **Borrar respuestas de esta sesión** pide escribir el código de sesión, borra solo esa sesión y cierra la recepción. El borrado es permanente. El archivo histórico es una sesión distinta y se conserva.
 
-El celular conserva su identificador y avance en localStorage. Si falla la conexión, conserva el envío para reintentar. Otro navegador o borrar el almacenamiento genera otro identificador. No se piden datos personales; al terminar solo aparece el mensaje de agradecimiento.
+## Diseño entre participantes
 
-## Nueva sesión
+Se sortean bloques de cuatro: baja/compra, baja/venta, alta/compra y alta/venta. Cada persona recibe las cuatro anclas fijas del mismo tipo y conserva su rol para los tres objetos. Los órdenes de preguntas y objetos se sortean. La versión de enfermedad usa un sorteo independiente y balanceado. CRT fijo: **máquinas → lago → pelota**, rotulada al docente «(ya vista en la clase 1)».
 
-1. Copiá `config/clase21.json` como `config/clase22.json` y cambiá `id`, bloques e ítems. Podés retirar bloques y reemplazar preguntas. Usá una cantidad par de anclas fijas y definí sus valores y rangos de dibujo.
-2. Ejecutá `node scripts/prepare-session.mjs config/clase22.json`. Genera un SQL y una clave privados; no sobrescribe archivos existentes.
-3. Ejecutá el SQL generado en el proyecto Supabase `irryksaoygdklwtsjsru`. Publicá el JSON y usá `index.html?s=clase22` y el nuevo enlace docente. La configuración queda copiada en Supabase al activar la sesión.
+Compra: máximo que pagaría por un objeto ajeno. Venta: mínimo que aceptaría por un objeto propio. Es una situación hipotética en pesos argentinos, con la misma foto y descripción para ambos grupos. Las fotos no incluyen marcas ni precios. [Fotos y prompts](assets/PROCEDENCIA.md).
 
-La pregunta futura con opción por defecto no se implementó. [Manual](MANUAL.md) explica configuración, seguridad, archivos y pruebas.
+El resumen de anclaje compara grupos distintos mediante el promedio por persona de ln(estimación / real). Solo incluye los cuatro ítems completos y positivos. Los valores fuera de escala se excluyen del dibujo, pero se cuentan y se incluyen en medianas y análisis.
 
-## Validación
+## Actualizar o agregar una sesión
 
-Supabase real: **40 participantes, 880 respuestas y grupos 20/20**, sin duplicados; p95 de envío 272 ms. Datos de prueba borrados y recepción cerrada. Nueve pruebas automáticas y controles de SQL/RLS aprobados. Recorrido completo, recarga, reintento y proyector revisados en navegador.
+Para pasar la instalación anterior a esta versión, ejecutá **una vez el archivo completo** [migrations/20261106_entre_grupos.sql](migrations/20261106_entre_grupos.sql). Incluye las funciones nuevas, conserva la URL, la clave y la recepción, y archiva el diseño y los datos anteriores como `clase21-v1`. Esa sesión se consulta con la misma clave usando `?s=clase21-v1`. Repetir la migración no duplica ni borra datos.
 
-**Pendientes:** iOS Safari y Android Chrome físicos, 40 teléfonos físicos simultáneos y piloto humano cronometrado de hasta ocho minutos. La carga por HTTP y el viewport móvil no equivalen a esas pruebas. [Detalle de validación](VALIDACION.md).
+Para una sesión nueva, copiá `config/clase21.json`, cambiá `id` e ítems y ejecutá `node scripts/prepare-session.mjs config/clase22.json`. Ejecutá el SQL privado generado, publicá el JSON y usá el enlace con el nuevo código. La configuración se copia a Supabase al activar; editar solo el archivo no cambia una sesión activada. La futura opción por defecto sigue sin implementarse.
 
-Pruebas: `node --test --test-isolation=none tests/core.test.js`. Demo local: `node scripts/serve.mjs`. Publicación: push a `main`, Pages desde la raíz, sin build. La instalación inicial usa el SQL privado generado; para actualizar funciones conservando la sesión ejecutá solo `schema.sql`.
+## Verificación
+
+`node --test --test-isolation=none tests/core.test.js` ejecuta las pruebas del motor. `node tests/postgres.mjs` prueba las funciones SQL, la conservación del archivo histórico y 40 participantes (requiere PGlite de desarrollo). El generador HTTP admite una sesión de QA vacía y cerrada mediante `--session=CODIGO`, limpia únicamente sus propios registros y conserva cualquier participante ajeno.
+
+[Detalle de validación](VALIDACION.md). Las pruebas en iOS Safari y Android Chrome físicos y el piloto humano de ocho minutos siguen pendientes. Local: `node scripts/serve.mjs`. Deploy: push a `main`, Pages desde la raíz, sin build.
